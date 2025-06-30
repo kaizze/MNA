@@ -1,0 +1,318 @@
+/* Medical News Automation - Admin Styles */
+
+/* General Styles */
+.mna-loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.mna-hidden {
+    display: none !important;
+}
+
+/* Notice Styles */
+.mna-notice {
+    margin: 20px 0;
+    padding: 15px;
+    border-radius: 4px;
+}
+
+.mna-notice.success {
+    background: #d4edda;
+    border-left: 4px solid #28a745;
+    color: #155724;
+}
+
+.mna-notice.error {
+    background: #f8d7da;
+    border-left: 4px solid #dc3545;
+    color: #721c24;
+}
+
+.mna-notice.warning {
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    color: #856404;
+}
+
+/* Status Indicators */
+.mna-status-indicator {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.mna-status-indicator.pending { background-color: #ffc107; }
+.mna-status-indicator.processing { background-color: #17a2b8; }
+.mna-status-indicator.completed { background-color: #28a745; }
+.mna-status-indicator.failed { background-color: #dc3545; }
+
+/* Button Styles */
+.mna-button-primary {
+    background-color: #007cba;
+    border-color: #007cba;
+    color: #fff;
+}
+
+.mna-button-primary:hover {
+    background-color: #005a87;
+    border-color: #005a87;
+}
+
+.mna-button-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: #fff;
+}
+
+.mna-button-secondary:hover {
+    background-color: #5a6268;
+    border-color: #5a6268;
+}
+
+.mna-button-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: #fff;
+}
+
+.mna-button-danger:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+
+/* Card Styles */
+.mna-card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.mna-card-header {
+    border-bottom: 1px solid #eee;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+}
+
+.mna-card-title {
+    margin: 0;
+    font-size: 18px;
+    color: #333;
+}
+
+/* Grid Layouts */
+.mna-grid {
+    display: grid;
+    gap: 20px;
+}
+
+.mna-grid-2 {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.mna-grid-3 {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.mna-grid-4 {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+/* Progress Bars */
+.mna-progress {
+    background-color: #e9ecef;
+    border-radius: 4px;
+    height: 20px;
+    overflow: hidden;
+}
+
+.mna-progress-bar {
+    background-color: #007cba;
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.mna-progress-bar.success { background-color: #28a745; }
+.mna-progress-bar.warning { background-color: #ffc107; }
+.mna-progress-bar.danger { background-color: #dc3545; }
+
+/* Tables */
+.mna-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+}
+
+.mna-table th,
+.mna-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.mna-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #495057;
+}
+
+.mna-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* Forms */
+.mna-form-group {
+    margin-bottom: 20px;
+}
+
+.mna-form-label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.mna-form-control {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.mna-form-control:focus {
+    border-color: #007cba;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0, 124, 186, 0.25);
+}
+
+.mna-form-text {
+    font-size: 12px;
+    color: #6c757d;
+    margin-top: 5px;
+}
+
+/* Badges */
+.mna-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.mna-badge-primary { background-color: #007cba; color: #fff; }
+.mna-badge-secondary { background-color: #6c757d; color: #fff; }
+.mna-badge-success { background-color: #28a745; color: #fff; }
+.mna-badge-warning { background-color: #ffc107; color: #212529; }
+.mna-badge-danger { background-color: #dc3545; color: #fff; }
+.mna-badge-info { background-color: #17a2b8; color: #fff; }
+
+/* Tooltips */
+.mna-tooltip {
+    position: relative;
+    cursor: help;
+}
+
+.mna-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: #fff;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s;
+    z-index: 1000;
+}
+
+.mna-tooltip:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Animations */
+@keyframes mna-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.mna-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #007cba;
+    border-radius: 50%;
+    animation: mna-spin 1s linear infinite;
+}
+
+/* Responsive */
+@media (max-width: 782px) {
+    .mna-grid-2,
+    .mna-grid-3,
+    .mna-grid-4 {
+        grid-template-columns: 1fr;
+    }
+    
+    .mna-table {
+        font-size: 12px;
+    }
+    
+    .mna-table th,
+    .mna-table td {
+        padding: 8px;
+    }
+}
+
+/* WordPress Admin Specific */
+.toplevel_page_medical-news-automation .wp-menu-image:before {
+    content: '\f179';
+}
+
+/* Custom scrollbar for text areas */
+.mna-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.mna-scrollbar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.mna-scrollbar::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.mna-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Print styles */
+@media print {
+    .mna-card {
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+    
+    .button,
+    .mna-button-primary,
+    .mna-button-secondary,
+    .mna-button-danger {
+        display: none;
+    }
+}
