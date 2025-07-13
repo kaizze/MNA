@@ -18,6 +18,7 @@ class MNA_API_Manager {
         
         // Add AJAX handlers for API testing
         add_action('wp_ajax_mna_test_apis', array($this, 'ajax_test_apis'));
+        add_action('wp_ajax_mna_test_single_api', array($this, 'ajax_test_single_api'));
         add_action('wp_ajax_mna_process_batch', array($this, 'ajax_process_batch'));
     }
     
@@ -34,6 +35,12 @@ class MNA_API_Manager {
         // Test LLM services
         $llm_results = $this->llm_service->test_connection('all');
         $results = array_merge($results, $llm_results);
+        
+        // Test Image services
+        require_once MNA_PLUGIN_PATH . 'includes/class-image-service.php';
+        $image_service = new MNA_Image_Service();
+        $image_results = $image_service->test_connections();
+        $results = array_merge($results, $image_results);
         
         return $results;
     }
@@ -81,6 +88,58 @@ class MNA_API_Manager {
             wp_send_json_success($result);
         } else {
             wp_send_json_error($result);
+        }
+    }
+    
+    /**
+     * AJAX handler for testing individual APIs
+     */
+    public function ajax_test_single_api() {
+        check_ajax_referer('mna_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.'));
+        }
+        
+        $service = sanitize_text_field($_POST['service'] ?? '');
+        
+        if (empty($service)) {
+            wp_send_json_error(array('message' => 'No service specified'));
+            return;
+        }
+        
+        $result = array('success' => false, 'message' => 'Unknown service');
+        
+        switch ($service) {
+            case 'perplexity':
+                $result = $this->perplexity_api->test_connection();
+                break;
+                
+            case 'openai':
+                $llm_results = $this->llm_service->test_connection('openai');
+                $result = $llm_results['openai'] ?? array('success' => false, 'error' => 'No result');
+                break;
+                
+            case 'claude':
+                $llm_results = $this->llm_service->test_connection('claude');
+                $result = $llm_results['claude'] ?? array('success' => false, 'error' => 'No result');
+                break;
+                
+            case 'unsplash':
+                require_once MNA_PLUGIN_PATH . 'includes/class-image-service.php';
+                $image_service = new MNA_Image_Service();
+                $image_results = $image_service->test_connections();
+                $result = $image_results['unsplash'] ?? array('success' => false, 'error' => 'No result');
+                break;
+                
+            default:
+                $result = array('success' => false, 'error' => 'Unknown service: ' . $service);
+        }
+        
+        if ($result['success']) {
+            wp_send_json_success(array('message' => $result['message'] ?? 'Test successful'));
+        } else {
+            wp_send_json_error(array('message' => $result['error'] ?? 'Test failed'));
         }
     }
 }

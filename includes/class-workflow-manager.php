@@ -85,28 +85,95 @@ class MNA_Workflow_Manager {
         
         $articles_table = $wpdb->prefix . 'mna_articles';
         
+        // Get headline and research data for creating WordPress draft
+        $headlines_table = $wpdb->prefix . 'mna_headlines';
+        $research_table = $wpdb->prefix . 'mna_research';
+        
+        $headline_data = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $headlines_table WHERE id = %d",
+            $article->headline_id
+        ));
+        
+        $research_data = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $research_table WHERE id = %d",
+            $article->research_id
+        ));
+        
+        if (!$headline_data || !$research_data) {
+            return array(
+                'success' => false,
+                'message' => 'Missing headline or research data'
+            );
+        }
+        
+        // Create WordPress draft post
+        $post_data = array(
+            'post_title' => $this->extract_title_from_content($article->generated_content) ?: $headline_data->headline,
+            'post_content' => $this->prepare_content_for_publication($article->generated_content, $research_data),
+            'post_status' => 'draft', // Create as draft, not published
+            'post_type' => 'post',
+            'post_author' => $journalist_id,
+            'post_category' => $this->get_post_categories($headline_data->category),
+            'meta_input' => array(
+                'mna_original_headline' => $headline_data->headline,
+                'mna_research_sources' => $research_data->sources_json,
+                'mna_generated_by' => $article->llm_used,
+                'mna_quality_score' => $article->content_quality_score,
+                'mna_journalist_notes' => $notes,
+                'mna_processed_date' => current_time('mysql'),
+                'mna_article_id' => $article->id
+            )
+        );
+        
+        $post_id = wp_insert_post($post_data);
+        
+        if (is_wp_error($post_id)) {
+            return array(
+                'success' => false,
+                'message' => 'Failed to create WordPress draft: ' . $post_id->get_error_message()
+            );
+        }
+        
+        // Add images to the post
+        $this->add_images_to_post($post_id, $headline_data, $article);
+        
+        // Update article record
         $updated = $wpdb->update(
             $articles_table,
             array(
                 'status' => 'approved',
+                'wordpress_post_id' => $post_id,
                 'journalist_id' => $journalist_id,
                 'journalist_notes' => $notes,
                 'reviewed_at' => current_time('mysql')
             ),
             array('id' => $article->id),
-            array('%s', '%d', '%s', '%s'),
+            array('%s', '%d', '%d', '%s', '%s'),
             array('%d')
+        );
+        
+        // Update headline status
+        MNA_Database::update_headline_status($article->headline_id, 'approved', 'Article approved and saved as draft');
+        
+        // Log the approval
+        MNA_Database::log_activity(
+            $article->headline_id,
+            'approve',
+            'completed',
+            'Article approved and saved as WordPress draft (ID: ' . $post_id . ')'
         );
         
         if ($updated) {
             return array(
                 'success' => true,
-                'message' => 'Article approved successfully'
+                'message' => 'Article approved and saved as WordPress draft',
+                'post_id' => $post_id,
+                'edit_url' => admin_url('post.php?post=' . $post_id . '&action=edit')
             );
         } else {
             return array(
                 'success' => false,
-                'message' => 'Failed to approve article'
+                'message' => 'Failed to update article status'
             );
         }
     }
@@ -280,7 +347,6 @@ class MNA_Workflow_Manager {
      * Extract title from generated content
      */
     private function extract_title_from_content($content) {
-        // Look for headline patterns in the content
         $lines = explode("\n", $content);
         
         foreach ($lines as $line) {
@@ -291,22 +357,36 @@ class MNA_Workflow_Manager {
                 continue;
             }
             
-            // Check if line looks like a title (first non-empty line, or marked with #)
-            if (strpos($line, '#') === 0) {
-                return trim(str_replace('#', '', $line));
+            // Check for **HEADLINE:** pattern
+            if (preg_match('/^\*\*HEADLINE:\*\*\s*(.+)$/i', $line, $matches)) {
+                return trim($matches[1]);
             }
             
-            // If it's the first substantial line and not too long, use it as title
-            if (strlen($line) > 20 && strlen($line) < 150 && !strpos($line, '.') === false) {
-                return $line;
+            // Check for **Title** pattern
+            if (preg_match('/^\*\*([^*]+)\*\*$/', $line, $matches)) {
+                $title = trim($matches[1]);
+                if (strlen($title) > 20 && strlen($title) < 150) {
+                    return $title;
+                }
             }
             
-            // If first line is short, it's likely the title
-            if (strlen($line) < 150) {
-                return $line;
+            // Check for markdown headers
+            if (preg_match('/^#+\s*(.+)$/', $line, $matches)) {
+                return trim($matches[1]);
             }
             
-            break; // Only check first few lines
+            // Check if it's the first substantial line (likely title)
+            if (strlen($line) > 20 && strlen($line) < 150) {
+                // Make sure it's not a regular sentence (doesn't end with period)
+                if (!preg_match('/\.\s*$/', $line)) {
+                    return $line;
+                }
+            }
+            
+            // If we've reached content that's clearly not a title, stop
+            if (strlen($line) > 150 || strpos($line, '. ') !== false) {
+                break;
+            }
         }
         
         return null;
@@ -316,7 +396,28 @@ class MNA_Workflow_Manager {
      * Prepare content for WordPress publication
      */
     private function prepare_content_for_publication($content, $research_data) {
-        // Remove title if it exists (it will be the post title)
+        // Step 1: Clean and structure the content
+        $content = $this->clean_content_structure($content);
+        
+        // Step 2: Convert markdown-style formatting to HTML
+        $content = $this->convert_markdown_to_html($content);
+        
+        // Step 3: Convert citations to numbered links
+        $content = $this->convert_citations_to_links($content, $research_data);
+        
+        // Step 4: Add proper paragraph breaks
+        $content = wpautop($content);
+        
+        // Step 5: Add source attribution at the end
+        $content .= $this->generate_source_attribution($research_data);
+        
+        return $content;
+    }
+    
+    /**
+     * Clean and structure content by removing title and organizing sections
+     */
+    private function clean_content_structure($content) {
         $lines = explode("\n", $content);
         $processed_lines = array();
         $title_removed = false;
@@ -329,31 +430,89 @@ class MNA_Workflow_Manager {
                 continue;
             }
             
-            // Remove first title-like line
-            if (!$title_removed && (strpos($line, '#') === 0 || (strlen($line) < 150 && !empty($processed_lines) === false))) {
+            // Remove first title-like line (it becomes the post title)
+            if (!$title_removed && $this->is_title_line($line)) {
                 $title_removed = true;
                 continue;
+            }
+            
+            // Skip "Medical Disclaimer" section (we'll add our own)
+            if (stripos($line, 'medical disclaimer') !== false) {
+                break;
             }
             
             $processed_lines[] = $line;
         }
         
-        $content = implode("\n", $processed_lines);
+        return implode("\n", $processed_lines);
+    }
+    
+    /**
+     * Check if a line looks like a title
+     */
+    private function is_title_line($line) {
+        // Check for markdown headers
+        if (strpos($line, '#') === 0) {
+            return true;
+        }
         
-        // Convert citations to HTML links
-        $content = $this->convert_citations_to_links($content, $research_data);
+        // Check for **HEADLINE:** pattern
+        if (preg_match('/^\*\*[A-Z][^*]+:\*\*/', $line)) {
+            return true;
+        }
         
-        // Add proper paragraph breaks
-        $content = wpautop($content);
+        // Check if it's short, at start, and looks like a title
+        if (strlen($line) < 150 && !strpos($line, '.')) {
+            return true;
+        }
         
-        // Add source attribution at the end
-        $content .= $this->generate_source_attribution($research_data);
+        return false;
+    }
+    
+    /**
+     * Convert markdown-style formatting to HTML
+     */
+    private function convert_markdown_to_html($content) {
+        // Convert **bold text** to proper headings or strong tags
+        $content = preg_replace_callback(
+            '/\*\*([^*]+)\*\*/i',
+            function($matches) {
+                $text = $matches[1];
+                
+                // If it's a section header (contains keywords), make it an H3
+                $section_keywords = array('understanding', 'implications', 'conclusion', 'background', 'study', 'research', 'findings', 'results');
+                $is_section = false;
+                
+                foreach ($section_keywords as $keyword) {
+                    if (stripos($text, $keyword) !== false) {
+                        $is_section = true;
+                        break;
+                    }
+                }
+                
+                if ($is_section || strlen($text) > 20) {
+                    return '<h3>' . $text . '</h3>';
+                } else {
+                    return '<strong>' . $text . '</strong>';
+                }
+            },
+            $content
+        );
+        
+        // Convert ### headers to H3
+        $content = preg_replace('/^### (.+)$/m', '<h3>$1</h3>', $content);
+        
+        // Convert ## headers to H2  
+        $content = preg_replace('/^## (.+)$/m', '<h2>$1</h2>', $content);
+        
+        // Convert # headers to H2 (avoid H1 as that's the post title)
+        $content = preg_replace('/^# (.+)$/m', '<h2>$1</h2>', $content);
         
         return $content;
     }
     
     /**
-     * Convert [Source: URL] citations to HTML links
+     * Convert [Source: URL] citations to numbered HTML links
      */
     private function convert_citations_to_links($content, $research_data) {
         $sources = json_decode($research_data->sources_json, true);
@@ -362,34 +521,53 @@ class MNA_Workflow_Manager {
             return $content;
         }
         
-        // Create a map of URLs to titles
-        $url_map = array();
-        foreach ($sources as $index => $source) {
-            if (!empty($source['url'])) {
-                $title = !empty($source['title']) ? $source['title'] : $source['domain'];
-                $url_map[$source['url']] = array(
-                    'title' => $title,
-                    'index' => $index + 1
-                );
-            }
+        // Filter out sources without URLs
+        $valid_sources = array_filter($sources, function($source) {
+            return !empty($source['url']);
+        });
+        
+        if (empty($valid_sources)) {
+            return $content;
         }
         
-        // Replace citations with proper HTML links
+        // Re-index valid sources
+        $valid_sources = array_values($valid_sources);
+        
+        // Create a map of URLs to citation numbers
+        $url_map = array();
+        foreach ($valid_sources as $index => $source) {
+            $url_map[$source['url']] = $index + 1;
+        }
+        
+        // Replace [Source: URL] with numbered links
         $content = preg_replace_callback(
             '/\[Source:\s*(https?:\/\/[^\]]+)\]/i',
             function ($matches) use ($url_map) {
                 $url = trim($matches[1]);
                 
                 if (isset($url_map[$url])) {
-                    $title = $url_map[$url]['title'];
-                    $index = $url_map[$url]['index'];
-                    return '<a href="' . esc_url($url) . '" target="_blank" rel="noopener">[' . $index . ']</a>';
+                    $citation_number = $url_map[$url];
+                    return '<sup><a href="' . esc_url($url) . '" target="_blank" rel="noopener nofollow">[' . $citation_number . ']</a></sup>';
                 } else {
-                    return '<a href="' . esc_url($url) . '" target="_blank" rel="noopener">[Source]</a>';
+                    // If URL not in our sources list, still make it a link
+                    return '<sup><a href="' . esc_url($url) . '" target="_blank" rel="noopener nofollow">[Source]</a></sup>';
                 }
             },
             $content
         );
+        
+        // Also look for and replace any standalone URLs that should be citations
+        foreach ($valid_sources as $index => $source) {
+            $url = $source['url'];
+            $citation_number = $index + 1;
+            
+            // Replace standalone URLs in text (not already in links)
+            $content = preg_replace(
+                '/(?<!\[Source:\s)(?<!")\b' . preg_quote($url, '/') . '\b(?!")/i',
+                '<sup><a href="' . esc_url($url) . '" target="_blank" rel="noopener nofollow">[' . $citation_number . ']</a></sup>',
+                $content
+            );
+        }
         
         return $content;
     }
@@ -404,16 +582,52 @@ class MNA_Workflow_Manager {
             return '';
         }
         
-        $attribution = "\n\n<hr>\n<h4>Sources:</h4>\n<ol>\n";
+        // Filter out sources without URLs
+        $valid_sources = array_filter($sources, function($source) {
+            return !empty($source['url']);
+        });
         
-        foreach ($sources as $source) {
-            if (!empty($source['url'])) {
-                $title = !empty($source['title']) ? $source['title'] : $source['domain'];
-                $attribution .= '<li><a href="' . esc_url($source['url']) . '" target="_blank" rel="noopener">' . esc_html($title) . '</a></li>' . "\n";
+        if (empty($valid_sources)) {
+            return '';
+        }
+        
+        // Re-index valid sources
+        $valid_sources = array_values($valid_sources);
+        
+        $attribution = "\n\n<div class=\"mna-sources-section\">\n";
+        $attribution .= "<hr style=\"margin: 30px 0; border: none; border-top: 1px solid #eee;\">\n";
+        $attribution .= "<h4 style=\"margin-bottom: 15px; color: #333; font-size: 16px;\">Πηγές:</h4>\n";
+        $attribution .= "<ol style=\"margin: 0; padding-left: 20px; line-height: 1.6;\">\n";
+        
+        foreach ($valid_sources as $index => $source) {
+            $title = !empty($source['title']) ? $source['title'] : $source['domain'];
+            if (empty($title)) {
+                $title = 'Source ' . ($index + 1);
             }
+            
+            $attribution .= '<li style="margin-bottom: 8px;">';
+            $attribution .= '<a href="' . esc_url($source['url']) . '" target="_blank" rel="noopener nofollow" style="color: #0073aa; text-decoration: none;">';
+            $attribution .= esc_html($title);
+            $attribution .= '</a>';
+            
+            // Add domain if title doesn't include it
+            if (!empty($source['domain']) && stripos($title, $source['domain']) === false) {
+                $attribution .= ' <em style="color: #666; font-size: 0.9em;">(' . esc_html($source['domain']) . ')</em>';
+            }
+            
+            $attribution .= '</li>' . "\n";
         }
         
         $attribution .= "</ol>\n";
+        
+        // Add medical disclaimer in Greek
+        $attribution .= "<div style=\"margin-top: 20px; padding: 15px; background: #f8f9fa; border-left: 4px solid #007cba; border-radius: 4px;\">\n";
+        $attribution .= "<p style=\"margin: 0; font-size: 14px; color: #555; font-style: italic;\">";
+        $attribution .= "<strong>Ιατρική Αποποίηση:</strong> Αυτό το άρθρο είναι μόνο για ενημερωτικούς σκοπούς και δεν πρέπει να θεωρείται ιατρική συμβουλή. ";
+        $attribution .= "Συμβουλευτείτε πάντα έναν εξειδικευμένο επαγγελματία υγείας πριν λάβετε οποιεσδήποτε ιατρικές αποφάσεις ή κάνετε αλλαγές στο υγειονομικό σας πρόγραμμα.";
+        $attribution .= "</p>\n";
+        $attribution .= "</div>\n";
+        $attribution .= "</div>\n";
         
         return $attribution;
     }
@@ -495,5 +709,66 @@ class MNA_Workflow_Manager {
         ));
         
         return $deleted;
+    }
+    
+    /**
+     * Add images to WordPress post
+     */
+    private function add_images_to_post($post_id, $headline_data, $article) {
+        // Initialize image service
+        require_once MNA_PLUGIN_PATH . 'includes/class-image-service.php';
+        $image_service = new MNA_Image_Service();
+        
+        // Get relevant images
+        $images = $image_service->get_article_images(
+            $headline_data->headline,
+            $headline_data->category,
+            $article->generated_content
+        );
+        
+        if (empty($images)) {
+            return;
+        }
+        
+        // Set featured image
+        if (isset($images['featured'])) {
+            $featured_attachment_id = $image_service->attach_image_to_post(
+                $images['featured'], 
+                $post_id, 
+                true // Set as featured
+            );
+            
+            if ($featured_attachment_id) {
+                // Log successful image attachment
+                MNA_Database::log_activity(
+                    null,
+                    'image',
+                    'completed',
+                    'Featured image added to post ' . $post_id
+                );
+            }
+        }
+        
+        // Add content images
+        if (isset($images['content']) && !empty($images['content'])) {
+            $content_attachment_ids = array();
+            
+            foreach ($images['content'] as $content_image) {
+                $attachment_id = $image_service->attach_image_to_post(
+                    $content_image, 
+                    $post_id, 
+                    false // Not featured
+                );
+                
+                if ($attachment_id) {
+                    $content_attachment_ids[] = $attachment_id;
+                }
+            }
+            
+            // Store content image IDs for potential future use
+            if (!empty($content_attachment_ids)) {
+                update_post_meta($post_id, 'mna_content_images', $content_attachment_ids);
+            }
+        }
     }
 }

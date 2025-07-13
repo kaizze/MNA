@@ -35,6 +35,14 @@ if (!defined('ABSPATH')) {
                 </a>
             </div>
             
+            <div class="mna-stat-box approved">
+                <h3><?php echo intval($stats['approved_articles']); ?></h3>
+                <p><?php _e('Approved Drafts', 'medical-news-automation'); ?></p>
+                <a href="<?php echo admin_url('edit.php?post_status=draft&post_type=post&meta_key=mna_article_id'); ?>" class="button button-small">
+                    <?php _e('View Drafts', 'medical-news-automation'); ?>
+                </a>
+            </div>
+            
             <div class="mna-stat-box published">
                 <h3><?php echo intval($stats['published_today']); ?></h3>
                 <p><?php _e('Published Today', 'medical-news-automation'); ?></p>
@@ -48,6 +56,14 @@ if (!defined('ABSPATH')) {
         <div class="mna-action-buttons">
             <a href="<?php echo admin_url('admin.php?page=mna-headlines'); ?>" class="button button-primary">
                 <?php _e('Add New Headlines', 'medical-news-automation'); ?>
+            </a>
+            
+            <button id="mna-process-batch" class="button button-secondary">
+                <?php _e('Process Headlines Batch', 'medical-news-automation'); ?>
+            </button>
+            
+            <a href="<?php echo admin_url('admin.php?page=mna-settings'); ?>" class="button">
+                <?php _e('Plugin Settings', 'medical-news-automation'); ?>
             </a>
             
             <button id="mna-test-apis" class="button">
@@ -231,7 +247,8 @@ if (!defined('ABSPATH')) {
 .mna-stat-box.pending { border-left-color: #f39c12; }
 .mna-stat-box.processing { border-left-color: #3498db; }
 .mna-stat-box.review { border-left-color: #e74c3c; }
-.mna-stat-box.published { border-left-color: #27ae60; }
+.mna-stat-box.approved { border-left-color: #27ae60; }
+.mna-stat-box.published { border-left-color: #2980b9; }
 
 .mna-stat-box h3 {
     font-size: 36px;
@@ -462,12 +479,4 @@ jQuery(document).ready(function($) {
         });
     });
 });
-</script>d="mna-process-batch" class="button button-secondary">
-                <?php _e('Process Headlines Batch', 'medical-news-automation'); ?>
-            </button>
-            
-            <a href="<?php echo admin_url('admin.php?page=mna-settings'); ?>" class="button">
-                <?php _e('Plugin Settings', 'medical-news-automation'); ?>
-            </a>
-            
-            <button i
+</script>

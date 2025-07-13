@@ -215,9 +215,9 @@ class MNA_Database {
                 'generated_content' => wp_kses_post($content),
                 'llm_used' => sanitize_text_field($llm_used),
                 'content_quality_score' => $quality_score ? intval($quality_score) : null,
-                'status' => 'draft'
+                'status' => 'draft'  // Explicitly set status to 'draft'
             ),
-            array('%d', '%d', '%s', '%s', '%d')
+            array('%d', '%d', '%s', '%s', '%d', '%s')  // Added %s for status
         );
     }
     
@@ -238,6 +238,26 @@ class MNA_Database {
              LEFT JOIN $research_table r ON a.research_id = r.id 
              WHERE a.status IN ('draft', 'under_review') 
              ORDER BY a.created_at DESC 
+             LIMIT %d",
+            $limit
+        ));
+    }
+    
+    /**
+     * Get approved articles (WordPress drafts)
+     */
+    public static function get_approved_articles($limit = 10) {
+        global $wpdb;
+        
+        $articles_table = $wpdb->prefix . 'mna_articles';
+        $headlines_table = $wpdb->prefix . 'mna_headlines';
+        
+        return $wpdb->get_results($wpdb->prepare(
+            "SELECT a.*, h.headline, h.category, a.wordpress_post_id 
+             FROM $articles_table a 
+             LEFT JOIN $headlines_table h ON a.headline_id = h.id 
+             WHERE a.status = 'approved' AND a.wordpress_post_id IS NOT NULL
+             ORDER BY a.reviewed_at DESC 
              LIMIT %d",
             $limit
         ));

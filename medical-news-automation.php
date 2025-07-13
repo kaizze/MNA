@@ -4,7 +4,7 @@
  * Plugin URI: https://yourwebsite.com/medical-news-automation
  * Description: Automates medical news article creation using headlines, Perplexity research, and AI content generation.
  * Version: 1.0.0
- * Author: mlnc
+ * Author: Your Name
  * License: GPL v2 or later
  * Text Domain: medical-news-automation
  */
@@ -29,8 +29,13 @@ class MedicalNewsAutomation {
     }
     
     public function init() {
-        // Load plugin textdomain
+        // Load plugin textdomain for Greek translation
         load_plugin_textdomain('medical-news-automation', false, dirname(plugin_basename(__FILE__)) . '/languages');
+        
+        // Set WordPress to Greek if not already set
+        if (!defined('WPLANG')) {
+            define('WPLANG', 'el');
+        }
         
         // Include required files
         $this->includes();
@@ -55,12 +60,13 @@ class MedicalNewsAutomation {
         require_once MNA_PLUGIN_PATH . 'includes/class-api-manager.php';
         require_once MNA_PLUGIN_PATH . 'includes/class-perplexity-api.php';
         require_once MNA_PLUGIN_PATH . 'includes/class-llm-service.php';
+        require_once MNA_PLUGIN_PATH . 'includes/class-image-service.php';
         require_once MNA_PLUGIN_PATH . 'includes/class-headline-processor.php';
         require_once MNA_PLUGIN_PATH . 'includes/class-workflow-manager.php';
         
         if (is_admin()) {
             require_once MNA_PLUGIN_PATH . 'admin/class-admin.php';
-            require_once MNA_PLUGIN_PATH . 'admin/class-settings.php';
+            // Note: Settings functionality is included in class-admin.php
         }
     }
     
@@ -76,10 +82,12 @@ class MedicalNewsAutomation {
             'perplexity_api_key' => '',
             'openai_api_key' => '',
             'claude_api_key' => '',
+            'unsplash_api_key' => '',
             'preferred_llm' => 'openai',
             'auto_process' => false,
             'email_notifications' => true,
-            'batch_size' => 5
+            'batch_size' => 5,
+            'enable_images' => true
         );
         
         foreach ($default_options as $key => $value) {

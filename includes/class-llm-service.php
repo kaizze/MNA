@@ -166,59 +166,59 @@ class MNA_LLM_Service {
     }
     
     /**
-     * Build article generation prompt
+     * Build article generation prompt in Greek
      */
     private function build_article_prompt($headline, $research_data, $sources) {
         $sources_text = $this->format_sources_for_prompt($sources);
         
-        $prompt = "Create a comprehensive medical news article based on the following information:
+        $prompt = "Δημιούργησε ένα περιεκτικό άρθρο ιατρικών ειδήσεων στα ελληνικά βασισμένο στις παρακάτω πληροφορίες:
 
-**HEADLINE:** {$headline}
+**ΤΙΤΛΟΣ:** {$headline}
 
-**RESEARCH DATA:**
+**ΔΕΔΟΜΕΝΑ ΕΡΕΥΝΑΣ:**
 {$research_data}
 
-**SOURCES TO CITE:**
+**ΠΗΓΕΣ ΠΡΟΣ ΠΑΡΑΠΟΜΠΗ:**
 {$sources_text}
 
-**REQUIREMENTS:**
-1. Write a complete news article (500-800 words)
-2. Use an engaging but professional tone suitable for general readers
-3. Include proper citations using [Source: URL] format after relevant statements
-4. Structure with clear headline, lead paragraph, body paragraphs, and conclusion
-5. Include relevant medical context and background information
-6. Explain technical terms for general audience
-7. Maintain journalistic objectivity and accuracy
-8. Use only information from the provided research and sources
-9. Add a brief disclaimer about consulting healthcare professionals for medical advice
+**ΑΠΑΙΤΗΣΕΙΣ:**
+1. Γράψε ένα πλήρες άρθρο ειδήσεων (500-800 λέξεις) στα ελληνικά
+2. Χρησιμοποίησε έναν ελκυστικό αλλά επαγγελματικό τόνο κατάλληλο για γενικούς αναγνώστες
+3. Συμπεριέλαβε σωστές παραπομπές χρησιμοποιώντας τη μορφή [Source: URL] μετά από σχετικές δηλώσεις
+4. Δόμησε με σαφή τίτλο, εισαγωγική παράγραφο, κύριες παραγράφους και συμπέρασμα
+5. Συμπεριέλαβε σχετικό ιατρικό πλαίσιο και πληροφορίες υπόβαθρου
+6. Εξήγησε τεχνικούς όρους για το γενικό κοινό
+7. Διατήρησε δημοσιογραφική αντικειμενικότητα και ακρίβεια
+8. Χρησιμοποίησε μόνο πληροφορίες από τις παρεχόμενες έρευνες και πηγές
+9. Πρόσθεσε μια σύντομη αποποίηση σχετικά με τη συμβουλή επαγγελματιών υγείας
 
-**ARTICLE STRUCTURE:**
-- Compelling headline (if different from provided)
-- Lead paragraph with key information (who, what, when, where, why)
-- 3-4 body paragraphs with details, context, and expert insights
-- Conclusion with implications or next steps
-- Medical disclaimer
+**ΔΟΜΗ ΑΡΘΡΟΥ:**
+- Ελκυστικός τίτλος (αν διαφέρει από τον παρεχόμενο)
+- Εισαγωγική παράγραφος με βασικές πληροφορίες (ποιος, τι, πότε, πού, γιατί)
+- 3-4 κύριες παράγραφοι με λεπτομέρειες, πλαίσιο και γνώμες ειδικών
+- Συμπέρασμα με επιπτώσεις ή επόμενα βήματα
+- Ιατρική αποποίηση
 
-Generate the article now:";
+Δημιούργησε το άρθρο τώρα στα ελληνικά:";
 
         return $prompt;
     }
     
     /**
-     * Get system prompt for medical journalism
+     * Get system prompt for Greek medical journalism
      */
     private function get_system_prompt() {
-        return "You are an experienced medical journalist specializing in creating accurate, engaging, and accessible health news articles. Your writing should be:
+        return "Είσαι έμπειρος ιατρικός δημοσιογράφος που ειδικεύεται στη δημιουργία ακριβών, ελκυστικών και προσβάσιμων άρθρων υγείας στα ελληνικά. Η γραφή σου πρέπει να είναι:
 
-- Scientifically accurate and evidence-based
-- Accessible to general readers without medical backgrounds
-- Properly cited with source references
-- Objective and unbiased
-- Following standard journalism practices
-- Compliant with medical reporting ethics
-- Clear about limitations and uncertainties in medical research
+- Επιστημονικά ακριβής και βασισμένη σε αποδείξεις
+- Προσβάσιμη σε γενικούς αναγνώστες χωρίς ιατρικό υπόβαθρο
+- Σωστά παραπεμπόμενη με αναφορές πηγών
+- Αντικειμενική και αμερόληπτη
+- Ακολουθεί τις τυπικές δημοσιογραφικές πρακτικές
+- Συμμορφώνεται με την ιατρική δημοσιογραφική δεοντολογία
+- Σαφής σχετικά με τους περιορισμούς και τις αβεβαιότητες στην ιατρική έρευνα
 
-Always include proper citations and maintain the highest standards of medical journalism. Do not make claims beyond what the source material supports.";
+Πάντα να συμπεριλαμβάνεις σωστές παραπομπές και να διατηρείς τα υψηλότερα πρότυπα της ιατρικής δημοσιογραφίας. Μην κάνεις ισχυρισμούς πέρα από αυτό που υποστηρίζει το υλικό των πηγών. Γράφε πάντα στα ελληνικά με σωστή γραμματική και σύνταξη.";
     }
     
     /**

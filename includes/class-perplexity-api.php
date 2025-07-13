@@ -11,7 +11,13 @@ class MNA_Perplexity_API {
     
     private $api_key;
     private $base_url = 'https://api.perplexity.ai/chat/completions';
-    private $model = 'llama-3.1-sonar-small-128k-online'; // Default model for online search
+    private $models = array(
+        'llama-3.1-sonar-large-128k-online',
+        'llama-3.1-sonar-small-128k-online',
+        'llama-3.1-sonar-huge-128k-online',
+        'sonar-large-32k-online',
+        'sonar-medium-32k-online'
+    );
     
     public function __construct() {
         $this->api_key = get_option('mna_perplexity_api_key', '');
@@ -79,29 +85,29 @@ class MNA_Perplexity_API {
     }
     
     /**
-     * Build research prompt for medical headlines
+     * Build research prompt for medical headlines in Greek
      */
     private function build_research_prompt($headline) {
-        $prompt = "Research the following medical news headline thoroughly. Provide comprehensive information including:
+        $prompt = "Ερεύνησε διεξοδικά τον ακόλουθο τίτλο ιατρικής είδησης. Παρέχε περιεκτικές πληροφορίες που περιλαμβάνουν:
 
-1. Key medical facts and details
-2. Recent developments or studies related to this topic
-3. Expert opinions or statements
-4. Statistical data if available
-5. Context and background information
-6. Potential implications for public health
+1. Βασικά ιατρικά γεγονότα και λεπτομέρειες
+2. Πρόσφατες εξελίξεις ή μελέτες σχετικές με αυτό το θέμα
+3. Γνώμες ή δηλώσεις ειδικών
+4. Στατιστικά δεδομένα αν είναι διαθέσιμα
+5. Πλαίσιο και πληροφορίες υπόβαθρου
+6. Πιθανές επιπτώσεις για τη δημόσια υγεία
 
-Please focus on credible medical sources, research institutions, health organizations, and peer-reviewed studies.
+Παρακαλώ εστίασε σε αξιόπιστες ιατρικές πηγές, ερευνητικά ιδρύματα, οργανισμούς υγείας και κριτικά αξιολογημένες μελέτες. Προτιμήστε πηγές στα ελληνικά όταν είναι διαθέσιμες.
 
-Headline: {$headline}
+Τίτλος: {$headline}
 
-Provide detailed research with proper source citations.";
+Παρέχε λεπτομερή έρευνα με σωστές παραπομπές πηγών:";
         
         return $prompt;
     }
     
     /**
-     * Make API request to Perplexity
+     * Make API request to Perplexity with model fallback
      */
     private function make_api_request($prompt) {
         $headers = array(
@@ -109,12 +115,11 @@ Provide detailed research with proper source citations.";
             'Content-Type' => 'application/json'
         );
         
-        $body = array(
-            'model' => $this->model,
+        $base_body = array(
             'messages' => array(
                 array(
                     'role' => 'system',
-                    'content' => 'You are a medical research assistant. Provide accurate, well-sourced information about medical topics from reliable sources.'
+                    'content' => 'Είσαι βοηθός ιατρικής έρευνας. Παρέχεις ακριβείς, καλά τεκμηριωμένες πληροφορίες για ιατρικά θέματα από αξιόπιστες πηγές. Απαντάς στα ελληνικά όταν είναι δυνατόν.'
                 ),
                 array(
                     'role' => 'user',
@@ -126,44 +131,51 @@ Provide detailed research with proper source citations.";
             'return_citations' => true
         );
         
-        $response = wp_remote_post($this->base_url, array(
-            'headers' => $headers,
-            'body' => wp_json_encode($body),
-            'timeout' => 60,
-            'data_format' => 'body'
-        ));
+        $last_error = '';
         
-        if (is_wp_error($response)) {
-            return array(
-                'success' => false,
-                'error' => $response->get_error_message()
-            );
+        // Try each model until one works
+        foreach ($this->models as $model) {
+            $body = array_merge($base_body, array('model' => $model));
+            
+            $response = wp_remote_post($this->base_url, array(
+                'headers' => $headers,
+                'body' => wp_json_encode($body),
+                'timeout' => 60,
+                'data_format' => 'body'
+            ));
+            
+            if (is_wp_error($response)) {
+                $last_error = $response->get_error_message();
+                continue; // Try next model
+            }
+            
+            $response_code = wp_remote_retrieve_response_code($response);
+            $response_body = wp_remote_retrieve_body($response);
+            
+            if ($response_code === 200) {
+                $data = json_decode($response_body, true);
+                
+                if ($data && isset($data['choices'][0]['message']['content'])) {
+                    return array(
+                        'success' => true,
+                        'data' => $data,
+                        'tokens_used' => isset($data['usage']['total_tokens']) ? $data['usage']['total_tokens'] : null,
+                        'model_used' => $model
+                    );
+                }
+            } else {
+                // Parse error from response
+                $error_data = json_decode($response_body, true);
+                $last_error = isset($error_data['error']['message']) 
+                    ? $error_data['error']['message'] 
+                    : "HTTP {$response_code}: {$response_body}";
+            }
         }
         
-        $response_code = wp_remote_retrieve_response_code($response);
-        $response_body = wp_remote_retrieve_body($response);
-        
-        if ($response_code !== 200) {
-            $error_data = json_decode($response_body, true);
-            return array(
-                'success' => false,
-                'error' => isset($error_data['error']['message']) ? $error_data['error']['message'] : 'API request failed'
-            );
-        }
-        
-        $data = json_decode($response_body, true);
-        
-        if (!$data || !isset($data['choices'][0]['message']['content'])) {
-            return array(
-                'success' => false,
-                'error' => 'Invalid API response format'
-            );
-        }
-        
+        // If all models failed, return the last error
         return array(
-            'success' => true,
-            'data' => $data,
-            'tokens_used' => isset($data['usage']['total_tokens']) ? $data['usage']['total_tokens'] : null
+            'success' => false,
+            'error' => $last_error ?: 'All Perplexity models failed. Please check your API key and try again.'
         );
     }
     
@@ -187,9 +199,36 @@ Provide detailed research with proper source citations.";
             }
         }
         
-        // If no citations, try to extract URLs from content
-        if (empty($sources)) {
-            $sources = $this->extract_urls_from_content($content);
+        // Always try to extract URLs from content (Perplexity often embeds sources in text)
+        $content_sources = $this->extract_urls_from_content($content);
+        
+        // Merge with citations, avoiding duplicates
+        foreach ($content_sources as $content_source) {
+            $is_duplicate = false;
+            foreach ($sources as $existing_source) {
+                if ($existing_source['url'] === $content_source['url']) {
+                    $is_duplicate = true;
+                    break;
+                }
+            }
+            if (!$is_duplicate && !empty($content_source['url'])) {
+                $sources[] = $content_source;
+            }
+        }
+        
+        // Also extract from markdown-style references in content
+        $markdown_sources = $this->extract_markdown_references($content);
+        foreach ($markdown_sources as $markdown_source) {
+            $is_duplicate = false;
+            foreach ($sources as $existing_source) {
+                if ($existing_source['url'] === $markdown_source['url']) {
+                    $is_duplicate = true;
+                    break;
+                }
+            }
+            if (!$is_duplicate && !empty($markdown_source['url'])) {
+                $sources[] = $markdown_source;
+            }
         }
         
         // Store/update source credibility in database
@@ -220,6 +259,47 @@ Provide detailed research with proper source citations.";
                 'domain' => $domain,
                 'credibility_score' => $this->calculate_source_credibility($url)
             );
+        }
+        
+        return $sources;
+    }
+    
+    /**
+     * Extract markdown-style references [1], [2], etc.
+     */
+    private function extract_markdown_references($content) {
+        $sources = array();
+        
+        // Look for reference-style links at the end of content
+        // Pattern: 1. **Source Name:** URL
+        // Pattern: [1] Source Name - URL
+        // Pattern: ### Sources:\n1. Source Name (URL)
+        
+        $patterns = array(
+            '/^\d+\.\s*\*\*([^:]+):\*\*\s*(https?:\/\/[^\s\n]+)/m',
+            '/^\[\d+\]\s*([^-]+)\s*-\s*(https?:\/\/[^\s\n]+)/m',
+            '/^\d+\.\s*([^(]+)\s*\((https?:\/\/[^)]+)\)/m',
+            '/^\d+\.\s*([^:]+):\s*(https?:\/\/[^\s\n]+)/m'
+        );
+        
+        foreach ($patterns as $pattern) {
+            preg_match_all($pattern, $content, $matches, PREG_SET_ORDER);
+            
+            foreach ($matches as $match) {
+                if (count($match) >= 3) {
+                    $title = trim($match[1]);
+                    $url = trim($match[2]);
+                    $domain = parse_url($url, PHP_URL_HOST);
+                    
+                    $sources[] = array(
+                        'url' => $url,
+                        'title' => $title,
+                        'snippet' => '',
+                        'domain' => $domain,
+                        'credibility_score' => $this->calculate_source_credibility($url)
+                    );
+                }
+            }
         }
         
         return $sources;
@@ -322,19 +402,57 @@ Provide detailed research with proper source citations.";
             );
         }
         
-        $test_prompt = "Test connection: What is the World Health Organization?";
-        $response = $this->make_api_request($test_prompt);
+        // Simple test prompt
+        $test_prompt = "What is WHO?";
         
-        if ($response['success']) {
+        // Test with just the first model and simple request
+        $headers = array(
+            'Authorization' => 'Bearer ' . $this->api_key,
+            'Content-Type' => 'application/json'
+        );
+        
+        $body = array(
+            'model' => $this->models[0],
+            'messages' => array(
+                array(
+                    'role' => 'user',
+                    'content' => $test_prompt
+                )
+            ),
+            'max_tokens' => 100
+        );
+        
+        $response = wp_remote_post($this->base_url, array(
+            'headers' => $headers,
+            'body' => wp_json_encode($body),
+            'timeout' => 30
+        ));
+        
+        if (is_wp_error($response)) {
+            return array(
+                'success' => false,
+                'error' => 'Connection error: ' . $response->get_error_message()
+            );
+        }
+        
+        $response_code = wp_remote_retrieve_response_code($response);
+        $response_body = wp_remote_retrieve_body($response);
+        
+        if ($response_code === 200) {
             return array(
                 'success' => true,
                 'message' => 'Perplexity API connection successful',
-                'tokens_used' => $response['tokens_used'] ?? 0
+                'model_used' => $this->models[0]
             );
         } else {
+            $error_data = json_decode($response_body, true);
+            $error_message = isset($error_data['error']['message']) 
+                ? $error_data['error']['message'] 
+                : "HTTP {$response_code}: {$response_body}";
+                
             return array(
                 'success' => false,
-                'error' => $response['error']
+                'error' => $error_message
             );
         }
     }

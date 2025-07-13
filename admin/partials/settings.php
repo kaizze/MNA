@@ -107,6 +107,27 @@ if (!defined('ABSPATH')) {
                         </p>
                     </td>
                 </tr>
+                
+                <tr>
+                    <th scope="row">
+                        <label for="unsplash_api_key"><?php _e('Unsplash API Key', 'medical-news-automation'); ?></label>
+                    </th>
+                    <td>
+                        <input type="password" id="unsplash_api_key" name="unsplash_api_key" 
+                               value="<?php echo esc_attr($current_settings['unsplash_api_key'] ?? ''); ?>" 
+                               class="regular-text" placeholder="Free API key...">
+                        <button type="button" class="button button-secondary toggle-password" data-target="unsplash_api_key">
+                            <?php _e('Show', 'medical-news-automation'); ?>
+                        </button>
+                        <button type="button" class="button button-secondary test-api" data-service="unsplash">
+                            <?php _e('Test', 'medical-news-automation'); ?>
+                        </button>
+                        <p class="description">
+                            <?php _e('For high-quality medical stock photos. Get your free API key from', 'medical-news-automation'); ?> 
+                            <a href="https://unsplash.com/developers" target="_blank">Unsplash Developers</a>
+                        </p>
+                    </td>
+                </tr>
             </table>
             
             <div class="api-status-section">
@@ -157,6 +178,38 @@ if (!defined('ABSPATH')) {
                         <?php else: ?>
                             <p class="description"><?php _e('No users with editing capabilities found.', 'medical-news-automation'); ?></p>
                         <?php endif; ?>
+                    </td>
+                </tr>
+                
+                <tr>
+                    <th scope="row">
+                        <label for="batch_size"><?php _e('Batch Size', 'medical-news-automation'); ?></label>
+                    </th>
+                    <td>
+                        <input type="number" id="batch_size" name="batch_size" 
+                               value="<?php echo intval($current_settings['batch_size']); ?>" 
+                               min="1" max="20" class="small-text">
+                        <p class="description">
+                            <?php _e('Number of headlines to process in each batch (1-20). Lower numbers are safer for API rate limits.', 'medical-news-automation'); ?>
+                        </p>
+                    </td>
+                </tr>
+                
+                <tr>
+                    <th scope="row"><?php _e('Processing Schedule', 'medical-news-automation'); ?></th>
+                    <td>
+                        <p class="description">
+                            <?php _e('Automatic processing runs every hour when enabled. Next scheduled run:', 'medical-news-automation'); ?>
+                            <strong>
+                                <?php 
+                                $next_cron = wp_next_scheduled('mna_process_headlines');
+                                echo $next_cron ? date('Y-m-d H:i:s', $next_cron) : __('Not scheduled', 'medical-news-automation');
+                                ?>
+                            </strong>
+                        </p>
+                        <button type="button" class="button button-secondary" id="trigger-manual-batch">
+                            <?php _e('Run Manual Batch Now', 'medical-news-automation'); ?>
+                        </button>
                     </td>
                 </tr>
             </table>
@@ -262,6 +315,29 @@ if (!defined('ABSPATH')) {
                     </tbody>
                 </table>
             </div>
+        </div>
+        
+        <!-- Notification Settings Tab -->
+        <div id="notification-settings" class="tab-content">
+            <h2><?php _e('Notification Settings', 'medical-news-automation'); ?></h2>
+            
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><?php _e('Email Notifications', 'medical-news-automation'); ?></th>
+                    <td>
+                        <fieldset>
+                            <label for="email_notifications">
+                                <input type="checkbox" id="email_notifications" name="email_notifications" value="1" 
+                                       <?php checked($current_settings['email_notifications']); ?>>
+                                <?php _e('Send email notifications when articles are ready for review', 'medical-news-automation'); ?>
+                            </label>
+                            <p class="description">
+                                <?php _e('When enabled, pending headlines will be automatically processed every hour via WordPress cron.', 'medical-news-automation'); ?>
+                            </p>
+                        </fieldset>
+                    </td>
+                </tr>
+            </table>
         </div>
         
         <?php submit_button(__('Save Settings', 'medical-news-automation'), 'primary', 'submit_settings'); ?>
@@ -484,58 +560,3 @@ jQuery(document).ready(function($) {
     });
 });
 </script>
-                                <?php _e('When enabled, pending headlines will be automatically processed every hour via WordPress cron.', 'medical-news-automation'); ?>
-                            </p>
-                        </fieldset>
-                    </td>
-                </tr>
-                
-                <tr>
-                    <th scope="row">
-                        <label for="batch_size"><?php _e('Batch Size', 'medical-news-automation'); ?></label>
-                    </th>
-                    <td>
-                        <input type="number" id="batch_size" name="batch_size" 
-                               value="<?php echo intval($current_settings['batch_size']); ?>" 
-                               min="1" max="20" class="small-text">
-                        <p class="description">
-                            <?php _e('Number of headlines to process in each batch (1-20). Lower numbers are safer for API rate limits.', 'medical-news-automation'); ?>
-                        </p>
-                    </td>
-                </tr>
-                
-                <tr>
-                    <th scope="row"><?php _e('Processing Schedule', 'medical-news-automation'); ?></th>
-                    <td>
-                        <p class="description">
-                            <?php _e('Automatic processing runs every hour when enabled. Next scheduled run:', 'medical-news-automation'); ?>
-                            <strong>
-                                <?php 
-                                $next_cron = wp_next_scheduled('mna_process_headlines');
-                                echo $next_cron ? date('Y-m-d H:i:s', $next_cron) : __('Not scheduled', 'medical-news-automation');
-                                ?>
-                            </strong>
-                        </p>
-                        <button type="button" class="button button-secondary" id="trigger-manual-batch">
-                            <?php _e('Run Manual Batch Now', 'medical-news-automation'); ?>
-                        </button>
-                    </td>
-                </tr>
-            </table>
-        </div>
-        
-        <!-- Notification Settings Tab -->
-        <div id="notification-settings" class="tab-content">
-            <h2><?php _e('Notification Settings', 'medical-news-automation'); ?></h2>
-            
-            <table class="form-table">
-                <tr>
-                    <th scope="row"><?php _e('Email Notifications', 'medical-news-automation'); ?></th>
-                    <td>
-                        <fieldset>
-                            <label for="email_notifications">
-                                <input type="checkbox" id="email_notifications" name="email_notifications" value="1" 
-                                       <?php checked($current_settings['email_notifications']); ?>>
-                                <?php _e('Send email notifications when articles are ready for review', 'medical-news-automation'); ?>
-                            </label>
-                            <p class="description">

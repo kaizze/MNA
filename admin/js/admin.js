@@ -140,8 +140,12 @@
             // Global AJAX error handler
             $(document).ajaxError(function(event, xhr, settings, error) {
                 console.error('AJAX Error:', error);
-                this.showNotification('AJAX request failed. Please try again.', 'error');
-            }.bind(this));
+                console.error('Response:', xhr.responseText);
+                if (xhr.status === 400) {
+                    console.error('Bad Request - check AJAX parameters');
+                }
+                // Don't show notification for every AJAX error, let specific handlers deal with it
+            });
             
             // Global AJAX success handler for common responses
             $(document).ajaxSuccess(function(event, xhr, settings, data) {

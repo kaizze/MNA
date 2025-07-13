@@ -20,8 +20,8 @@ class MNA_Admin {
     public function add_admin_menu() {
         // Main menu
         add_menu_page(
-            __('Medical News Automation', 'medical-news-automation'),
-            __('News Automation', 'medical-news-automation'),
+            'Αυτοματοποίηση Ιατρικών Ειδήσεων',
+            'Αυτοματοποίηση Ειδήσεων',
             'manage_options',
             'medical-news-automation',
             array($this, 'dashboard_page'),
@@ -32,8 +32,8 @@ class MNA_Admin {
         // Headlines queue submenu
         add_submenu_page(
             'medical-news-automation',
-            __('Headlines Queue', 'medical-news-automation'),
-            __('Headlines Queue', 'medical-news-automation'),
+            'Ουρά Τίτλων',
+            'Ουρά Τίτλων',
             'edit_posts',
             'mna-headlines',
             array($this, 'headlines_page')
@@ -42,8 +42,8 @@ class MNA_Admin {
         // Article review submenu
         add_submenu_page(
             'medical-news-automation',
-            __('Article Review', 'medical-news-automation'),
-            __('Article Review', 'medical-news-automation'),
+            'Έλεγχος Άρθρων',
+            'Έλεγχος Άρθρων',
             'edit_posts',
             'mna-review',
             array($this, 'review_page')
@@ -52,8 +52,8 @@ class MNA_Admin {
         // Settings submenu
         add_submenu_page(
             'medical-news-automation',
-            __('Settings', 'medical-news-automation'),
-            __('Settings', 'medical-news-automation'),
+            'Ρυθμίσεις',
+            'Ρυθμίσεις',
             'manage_options',
             'mna-settings',
             array($this, 'settings_page')
@@ -62,8 +62,8 @@ class MNA_Admin {
         // Analytics submenu
         add_submenu_page(
             'medical-news-automation',
-            __('Analytics', 'medical-news-automation'),
-            __('Analytics', 'medical-news-automation'),
+            'Αναλυτικά Στοιχεία',
+            'Αναλυτικά Στοιχεία',
             'manage_options',
             'mna-analytics',
             array($this, 'analytics_page')
@@ -96,6 +96,7 @@ class MNA_Admin {
             'pending_headlines' => $wpdb->get_var("SELECT COUNT(*) FROM $headlines_table WHERE status = 'pending'"),
             'processing_headlines' => $wpdb->get_var("SELECT COUNT(*) FROM $headlines_table WHERE status IN ('processing', 'researched')"),
             'articles_for_review' => $wpdb->get_var("SELECT COUNT(*) FROM $articles_table WHERE status IN ('draft', 'under_review')"),
+            'approved_articles' => $wpdb->get_var("SELECT COUNT(*) FROM $articles_table WHERE status = 'approved'"),
             'published_today' => $wpdb->get_var($wpdb->prepare(
                 "SELECT COUNT(*) FROM $articles_table WHERE status = 'published' AND DATE(published_at) = %s",
                 current_time('Y-m-d')
@@ -158,10 +159,12 @@ class MNA_Admin {
                 'perplexity_api_key' => sanitize_text_field($_POST['perplexity_api_key']),
                 'openai_api_key' => sanitize_text_field($_POST['openai_api_key']),
                 'claude_api_key' => sanitize_text_field($_POST['claude_api_key']),
+                'unsplash_api_key' => sanitize_text_field($_POST['unsplash_api_key'] ?? ''),
                 'preferred_llm' => sanitize_text_field($_POST['preferred_llm']),
                 'auto_process' => isset($_POST['auto_process']),
                 'email_notifications' => isset($_POST['email_notifications']),
-                'batch_size' => intval($_POST['batch_size'])
+                'batch_size' => intval($_POST['batch_size']),
+                'enable_images' => isset($_POST['enable_images'])
             );
             
             foreach ($settings as $key => $value) {
@@ -176,10 +179,12 @@ class MNA_Admin {
             'perplexity_api_key' => get_option('mna_perplexity_api_key', ''),
             'openai_api_key' => get_option('mna_openai_api_key', ''),
             'claude_api_key' => get_option('mna_claude_api_key', ''),
+            'unsplash_api_key' => get_option('mna_unsplash_api_key', ''),
             'preferred_llm' => get_option('mna_preferred_llm', 'openai'),
             'auto_process' => get_option('mna_auto_process', false),
             'email_notifications' => get_option('mna_email_notifications', true),
-            'batch_size' => get_option('mna_batch_size', 5)
+            'batch_size' => get_option('mna_batch_size', 5),
+            'enable_images' => get_option('mna_enable_images', true)
         );
         
         include MNA_PLUGIN_PATH . 'admin/partials/settings.php';
